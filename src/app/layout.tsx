@@ -16,6 +16,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Groq Kimi Chat",
   description: "Chat with Groq's Kimi K2 model",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Groq Chat',
+  },
 };
 
 export default function RootLayout({
@@ -28,8 +40,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navigation />
-        {children}
+        <div className="flex flex-col h-screen">
+          <Navigation />
+          <main className="flex-1 overflow-hidden">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
