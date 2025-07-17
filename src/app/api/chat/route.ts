@@ -19,8 +19,8 @@ export async function POST(req: Request) {
 
     const fullMessages = [
       { role: 'system' as const, content: systemPrompt || 'You are a helpful assistant' },
-      ...trimmedMessages.map((m: any) => ({
-        role: m.role as 'user' | 'assistant',
+      ...trimmedMessages.map((m: { role: 'user' | 'assistant'; content: string }) => ({
+        role: m.role,
         content: m.content,
       })),
     ];
