@@ -7,8 +7,9 @@ import { ChatThread, SystemPrompt } from '@/app/types';
 import { loadAllChats, saveChat, deleteChat, loadAllPrompts } from '@/lib/storage';
 import { ChatWindow } from '@/app/components/ChatWindow';
 import { ChatList } from '@/app/components/ChatList';
-import { Settings, Menu, X } from 'lucide-react';
+import { Settings, Menu, X, Mic } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { FERMI_VOICE_PROMPT } from '@/lib/fermi-prompt';
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -20,6 +21,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
   const [showPromptSelector, setShowPromptSelector] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
 
   useEffect(() => {
     console.log('[ChatPage] useEffect triggered for ID:', id);
@@ -90,6 +92,27 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
+  const toggleVoiceMode = () => {
+    if (currentChat) {
+      const newVoiceMode = !voiceMode;
+      setVoiceMode(newVoiceMode);
+      
+      // Update system prompt based on voice mode
+      const updatedChat = { 
+        ...currentChat, 
+        systemPrompt: newVoiceMode ? FERMI_VOICE_PROMPT : currentChat.systemPrompt 
+      };
+      
+      if (!newVoiceMode && currentChat.systemPrompt === FERMI_VOICE_PROMPT) {
+        // Revert to default if turning off voice mode
+        updatedChat.systemPrompt = 'You are a helpful assistant';
+      }
+      
+      saveChat(updatedChat);
+      setCurrentChat(updatedChat);
+    }
+  };
+
   if (!currentChat) {
     console.log('[ChatPage] No current chat, showing loading screen');
     return <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900"><div className="text-gray-600 dark:text-gray-400">Loading...</div></div>;
@@ -142,6 +165,18 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           </div>
           <div className="flex space-x-2 flex-shrink-0">
             <button
+              onClick={toggleVoiceMode}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                voiceMode
+                  ? "bg-purple-600 text-white hover:bg-purple-700"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+              )}
+              title={voiceMode ? "Voice mode enabled (Fermi)" : "Enable voice mode"}
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => setShowPromptSelector(!showPromptSelector)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
               title="Change system prompt"
@@ -173,7 +208,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         )}
         
         <div className="flex-1 overflow-hidden">
-          <ChatWindow chatThread={currentChat} />
+          <ChatWindow chatThread={currentChat} isVoiceMode={voiceMode} />
         </div>
       </div>
     </div>

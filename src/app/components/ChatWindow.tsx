@@ -4,17 +4,18 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { ChatThread } from '../types';
 import { useChat } from '../hooks/useChat';
-import { useSpeech } from '../hooks/useSpeech';
+import { useVoice } from '../hooks/useVoice';
 import { cn } from '@/lib/cn';
 
 interface ChatWindowProps {
   chatThread: ChatThread;
+  isVoiceMode?: boolean;
 }
 
-export function ChatWindow({ chatThread }: ChatWindowProps) {
+export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps) {
   const { messages, isLoading, sendMessage } = useChat(chatThread);
   const [input, setInput] = useState('');
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(isVoiceMode);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { 
@@ -26,7 +27,7 @@ export function ChatWindow({ chatThread }: ChatWindowProps) {
     speak, 
     stopSpeaking,
     isSupported 
-  } = useSpeech();
+  } = useVoice();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,6 +38,11 @@ export function ChatWindow({ chatThread }: ChatWindowProps) {
     inputRef.current?.focus();
   }, []);
 
+  // Sync voice mode from parent
+  useEffect(() => {
+    setVoiceEnabled(isVoiceMode);
+  }, [isVoiceMode]);
+
   // Update input with voice transcript
   useEffect(() => {
     if (transcript) {
@@ -44,11 +50,27 @@ export function ChatWindow({ chatThread }: ChatWindowProps) {
     }
   }, [transcript]);
 
+  // Strip SSML tags for display
+  const stripSSML = (text: string): string => {
+    // Remove <speak> tags and all SSML markup
+    return text
+      .replace(/<speak>/g, '')
+      .replace(/<\/speak>/g, '')
+      .replace(/<break[^>]*\/>/g, ' ')
+      .replace(/<emphasis[^>]*>([^<]*)<\/emphasis>/g, '$1')
+      .replace(/<prosody[^>]*>([^<]*)<\/prosody>/g, '$1')
+      .replace(/<phoneme[^>]*>([^<]*)<\/phoneme>/g, '$1')
+      .replace(/\[([^\]]+)\]/g, '') // Remove emotion tags
+      .replace(/<[^>]+>/g, '') // Remove any other tags
+      .trim();
+  };
+
   // Speak new assistant messages if voice is enabled
   useEffect(() => {
     if (voiceEnabled && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant' && lastMessage.content) {
+        // Send raw SSML content to TTS
         speak(lastMessage.content);
       }
     }
@@ -97,7 +119,11 @@ export function ChatWindow({ chatThread }: ChatWindowProps) {
                   : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
               )}
             >
-              <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
+              <pre className="whitespace-pre-wrap font-sans">
+                {message.role === 'assistant' && isVoiceMode 
+                  ? stripSSML(message.content) 
+                  : message.content}
+              </pre>
             </div>
           </div>
         ))}
