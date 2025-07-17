@@ -20,15 +20,23 @@ export function ChatWindow({ chatThread }: ChatWindowProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
       sendMessage(input);
       setInput('');
       // Keep focus on input after sending
-      setTimeout(() => {
+      // Use requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
         inputRef.current?.focus();
-      }, 0);
+        // Also select all text if there's any (shouldn't be after clearing)
+        inputRef.current?.select();
+      });
     }
   };
 
@@ -83,6 +91,7 @@ export function ChatWindow({ chatThread }: ChatWindowProps) {
             autoCorrect="on"
             autoCapitalize="sentences"
             enterKeyHint="send"
+            autoFocus
           />
           <button
             type="submit"
