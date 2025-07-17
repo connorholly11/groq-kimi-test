@@ -1,4 +1,4 @@
-# Groq Kimi Chat Test:
+# Groq Kimi Chat Test
 
 A Next.js chat application using Groq's Kimi K2 model with local storage persistence.
 
