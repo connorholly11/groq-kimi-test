@@ -92,13 +92,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             >
               <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
-            <a
-              href="/system-prompts"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-blue-600 dark:text-blue-400 font-medium transition-colors"
-              title="Manage prompts"
-            >
-              Edit Prompts
-            </a>
           </div>
         </div>
         
