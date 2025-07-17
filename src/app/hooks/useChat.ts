@@ -57,9 +57,16 @@ export function useChat(chatThread: ChatThread) {
 
         for (const line of lines) {
           if (line.startsWith('0:')) {
-            const content = line.slice(2);
-            if (content && content !== '\n') {
-              assistantContent += content;
+            const jsonPart = line.slice(2);
+            if (jsonPart && jsonPart !== '\n') {
+              let token = '';
+              try {
+                token = JSON.parse(jsonPart);
+              } catch {
+                // Fallback: strip wrapping quotes if JSON.parse fails
+                token = jsonPart.replace(/^"+|"+$/g, '');
+              }
+              assistantContent += token;
               setMessages(prev => {
                 const updated = [...prev];
                 updated[updated.length - 1] = {
