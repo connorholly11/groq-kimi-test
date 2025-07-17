@@ -3,7 +3,7 @@ import { createClient } from '@deepgram/sdk';
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.DEEPGRAM_KEY;
+    const apiKey = process.env.DEEPGRAM_API_KEY || process.env.DEEPGRAM_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Deepgram API key not configured' },
@@ -28,14 +28,16 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Transcribe with Nova-2 model for fastest results
+    // Transcribe with Nova-3 model for best accuracy
     const { result } = await deepgram.listen.prerecorded.transcribeFile(
       buffer,
       {
-        model: 'nova-2',
+        model: 'nova-3',
         smart_format: true,
         punctuate: true,
         language: 'en-US',
+        encoding: 'webm',
+        sample_rate: 48000,
       }
     );
 
@@ -51,25 +53,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// WebSocket endpoint for streaming (Next.js doesn't support WebSockets natively)
-// For streaming, we'll use the browser WebSocket API directly
-export async function GET(req: NextRequest) {
-  const apiKey = process.env.DEEPGRAM_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'Deepgram API key not configured' },
-      { status: 500 }
-    );
-  }
-
-  // Return the API key in a secure way for client-side WebSocket connection
-  // In production, you'd want to use a proxy WebSocket server
-  return NextResponse.json({ 
-    wsUrl: 'wss://api.deepgram.com/v1/listen',
-    // Don't send the key directly - this is just for demo
-    // In production, use a WebSocket proxy server
-    headers: {
-      'Authorization': `Token ${apiKey}`
-    }
-  });
-}

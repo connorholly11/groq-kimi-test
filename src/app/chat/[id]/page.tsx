@@ -93,24 +93,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   };
 
   const toggleVoiceMode = () => {
-    if (currentChat) {
-      const newVoiceMode = !voiceMode;
-      setVoiceMode(newVoiceMode);
-      
-      // Update system prompt based on voice mode
-      const updatedChat = { 
-        ...currentChat, 
-        systemPrompt: newVoiceMode ? FERMI_VOICE_PROMPT : currentChat.systemPrompt 
-      };
-      
-      if (!newVoiceMode && currentChat.systemPrompt === FERMI_VOICE_PROMPT) {
-        // Revert to default if turning off voice mode
-        updatedChat.systemPrompt = 'You are a helpful assistant';
-      }
-      
-      saveChat(updatedChat);
-      setCurrentChat(updatedChat);
-    }
+    setVoiceMode(!voiceMode);
+    // Don't modify the chat's system prompt - voice mode will use its own
   };
 
   if (!currentChat) {
@@ -185,6 +169,16 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             </button>
           </div>
         </div>
+        
+        {voiceMode && (
+          <div className="bg-purple-600 text-white px-4 py-2 text-sm flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Mic className="w-4 h-4 animate-pulse" />
+              <span className="font-medium">Voice Mode Active - Fermi AI Coach</span>
+            </div>
+            <span className="text-purple-200 text-xs">Hold mic button to speak</span>
+          </div>
+        )}
         
         {showPromptSelector && (
           <div className="border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-gray-100 dark:bg-gray-800 flex-shrink-0">

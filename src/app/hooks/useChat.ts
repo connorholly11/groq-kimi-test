@@ -2,9 +2,10 @@ import { useState, useCallback } from 'react';
 import { Message, ChatThread } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { saveChat } from '@/lib/storage';
+import { FERMI_VOICE_PROMPT } from '@/lib/fermi-prompt';
 
-export function useChat(chatThread: ChatThread) {
-  console.log('[useChat] Hook initialized with thread:', chatThread.id);
+export function useChat(chatThread: ChatThread, isVoiceMode: boolean = false) {
+  console.log('[useChat] Hook initialized with thread:', chatThread.id, 'voice mode:', isVoiceMode);
   const [messages, setMessages] = useState<Message[]>(chatThread.messages);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,9 +25,13 @@ export function useChat(chatThread: ChatThread) {
     setIsLoading(true);
 
     try {
+      // Use voice prompt only in voice mode, otherwise use chat's normal prompt
+      const systemPrompt = isVoiceMode ? FERMI_VOICE_PROMPT : chatThread.systemPrompt;
+      
+      // Only include system prompt on first message to avoid duplication
       const requestBody = {
         messages: newMessages,
-        systemPrompt: chatThread.systemPrompt,
+        systemPrompt: messages.length === 0 ? systemPrompt : undefined,
       };
       console.log('[useChat] Sending request to /api/chat:', JSON.stringify(requestBody, null, 2));
       
@@ -45,8 +50,6 @@ export function useChat(chatThread: ChatThread) {
         throw new Error('Failed to send message');
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let assistantContent = '';
       console.log('[useChat] Starting to read stream');
 
@@ -59,44 +62,35 @@ export function useChat(chatThread: ChatThread) {
 
       setMessages([...newMessages, assistantMessage]);
 
+      // Create a proper async iterator for the stream
+      const stream = response.body!.pipeThrough(new TextDecoderStream());
+      const streamReader = stream.getReader();
+      
       let chunkCount = 0;
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) {
-          console.log(`[useChat] Stream complete. Total chunks: ${chunkCount}`);
-          break;
-        }
-
-        chunkCount++;
-        const chunk = decoder.decode(value);
-        console.log(`[useChat] Chunk ${chunkCount}:`, chunk);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('0:')) {
-            const jsonPart = line.slice(2);
-            if (jsonPart && jsonPart !== '\n') {
-              let token = '';
-              try {
-                token = JSON.parse(jsonPart);
-                console.log('[useChat] Parsed token:', token);
-              } catch (e) {
-                console.warn('[useChat] Failed to parse JSON:', jsonPart, e);
-                // Fallback: strip wrapping quotes if JSON.parse fails
-                token = jsonPart.replace(/^"+|"+$/g, '');
-              }
-              assistantContent += token;
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  ...assistantMessage,
-                  content: assistantContent,
-                };
-                return updated;
-              });
-            }
+      try {
+        while (true) {
+          const { done, value } = await streamReader.read();
+          if (done) {
+            console.log(`[useChat] Stream complete. Total chunks: ${chunkCount}`);
+            break;
           }
+
+          chunkCount++;
+          console.log(`[useChat] Chunk ${chunkCount}:`, value);
+          
+          // Plain text stream - just append the chunk
+          assistantContent += value;
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              ...assistantMessage,
+              content: assistantContent,
+            };
+            return updated;
+          });
         }
+      } finally {
+        streamReader.releaseLock();
       }
 
       const finalMessages = [
@@ -122,7 +116,7 @@ export function useChat(chatThread: ChatThread) {
       console.log('[useChat] Setting isLoading to false');
       setIsLoading(false);
     }
-  }, [messages, chatThread]);
+  }, [messages, chatThread, isVoiceMode]);
 
   return {
     messages,

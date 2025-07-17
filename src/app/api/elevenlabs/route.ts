@@ -20,12 +20,14 @@ export async function POST(req: NextRequest) {
         headers: {
           'xi-api-key': apiKey,
           'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
         },
         body: JSON.stringify({
           text,
-          model_id: 'eleven_turbo_v2_5', // Flash v2.5
+          model_id: 'eleven_flash_v2_5', // Correct Flash v2.5 model ID
           output_format: 'mp3_44100_128',
           optimize_streaming_latency: 4, // Maximum optimization for low latency
+          use_ssml: true, // Enable SSML parsing
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.8,

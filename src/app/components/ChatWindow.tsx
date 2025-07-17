@@ -13,7 +13,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps) {
-  const { messages, isLoading, sendMessage } = useChat(chatThread);
+  const { messages, isLoading, sendMessage } = useChat(chatThread, isVoiceMode);
   const [input, setInput] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(isVoiceMode);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,6 +26,8 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
     stopListening, 
     speak, 
     stopSpeaking,
+    clearTranscript,
+    transcriptPromiseRef,
     isSupported 
   } = useVoice();
 
@@ -43,12 +45,22 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
     setVoiceEnabled(isVoiceMode);
   }, [isVoiceMode]);
 
-  // Update input with voice transcript
+  // Handle voice transcript auto-send
   useEffect(() => {
-    if (transcript) {
-      setInput(transcript);
-    }
-  }, [transcript]);
+    if (!voiceEnabled || !transcriptPromiseRef.current) return;
+    
+    let active = true;
+    (async () => {
+      const t = await transcriptPromiseRef.current;
+      if (active && t && t.trim() && !isLoading) {
+        await sendMessage(t.trim());
+        clearTranscript();
+        setInput('');
+      }
+    })();
+    
+    return () => { active = false; };
+  }, [transcriptPromiseRef.current, isLoading, voiceEnabled, sendMessage, clearTranscript]);
 
   // Strip SSML tags for display
   const stripSSML = (text: string): string => {
@@ -66,11 +78,14 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
   };
 
   // Speak new assistant messages if voice is enabled
+  const lastSpokenMessageRef = useRef<string>('');
   useEffect(() => {
     if (voiceEnabled && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'assistant' && lastMessage.content) {
-        // Send raw SSML content to TTS
+      if (lastMessage.role === 'assistant' && lastMessage.content && 
+          lastMessage.id !== lastSpokenMessageRef.current) {
+        // Send raw SSML content to TTS only once per message
+        lastSpokenMessageRef.current = lastMessage.id;
         speak(lastMessage.content);
       }
     }
@@ -93,16 +108,18 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
 
   const handleVoiceStop = () => {
     stopListening();
-    // Auto-send if there's transcribed text
-    if (input.trim() && !isLoading) {
-      sendMessage(input);
-      setInput('');
-    }
+    // The transcript will be handled by the effect above
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50 dark:bg-gray-800">
+    <div className={cn(
+      "flex flex-col h-full",
+      isVoiceMode ? "bg-purple-50 dark:bg-purple-950" : "bg-white dark:bg-gray-900"
+    )}>
+      <div className={cn(
+        "flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4",
+        isVoiceMode ? "bg-purple-50 dark:bg-purple-900/20" : "bg-gray-50 dark:bg-gray-800"
+      )}>
         {messages.map((message) => (
           <div
             key={message.id}
@@ -129,21 +146,48 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-600">
+            <div className={cn(
+              "rounded-lg px-4 py-2 border",
+              isVoiceMode 
+                ? "bg-purple-100 dark:bg-purple-800 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-600"
+                : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-600"
+            )}>
               <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce delay-100" />
-                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce delay-200" />
+                <div className={cn(
+                  "w-2 h-2 rounded-full animate-bounce",
+                  isVoiceMode ? "bg-purple-600 dark:bg-purple-400" : "bg-gray-400 dark:bg-gray-500"
+                )} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full animate-bounce delay-100",
+                  isVoiceMode ? "bg-purple-600 dark:bg-purple-400" : "bg-gray-400 dark:bg-gray-500"
+                )} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full animate-bounce delay-200",
+                  isVoiceMode ? "bg-purple-600 dark:bg-purple-400" : "bg-gray-400 dark:bg-gray-500"
+                )} />
               </div>
+            </div>
+          </div>
+        )}
+        {isSpeaking && isVoiceMode && (
+          <div className="flex justify-start">
+            <div className="bg-purple-600 text-white rounded-lg px-4 py-2 flex items-center space-x-2">
+              <Volume2 className="w-4 h-4 animate-pulse" />
+              <span className="text-sm">Speaking...</span>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-white dark:bg-gray-900">
+      <form onSubmit={handleSubmit} className={cn(
+        "border-t p-3 sm:p-4",
+        isVoiceMode 
+          ? "border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950" 
+          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+      )}>
         <div className="flex space-x-2">
-          {isSupported && (
+          {isSupported && !isVoiceMode && (
             <>
               <button
                 type="button"
@@ -180,6 +224,38 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
                 {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
             </>
+          )}
+          {isSupported && isVoiceMode && (
+            <button
+              type="button"
+              onMouseDown={startListening}
+              onMouseUp={handleVoiceStop}
+              onMouseLeave={handleVoiceStop}
+              onTouchStart={startListening}
+              onTouchEnd={handleVoiceStop}
+              disabled={isLoading}
+              className={cn(
+                "px-4 py-3 rounded-lg transition-all min-w-[60px]",
+                isListening 
+                  ? "bg-red-600 text-white animate-pulse scale-110" 
+                  : "bg-purple-600 text-white hover:bg-purple-700 hover:scale-105",
+                isLoading && "opacity-50 cursor-not-allowed"
+              )}
+              aria-label={isListening ? "Stop recording" : "Start recording"}
+              title="Hold to speak"
+            >
+              {isListening ? (
+                <div className="flex items-center space-x-2">
+                  <MicOff className="w-6 h-6" />
+                  <span className="text-sm font-medium">Release to send</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Mic className="w-6 h-6" />
+                  <span className="text-sm font-medium">Hold to speak</span>
+                </div>
+              )}
+            </button>
           )}
           <input
             ref={inputRef}

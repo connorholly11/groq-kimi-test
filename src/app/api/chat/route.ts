@@ -41,14 +41,20 @@ export async function POST(req: Request) {
     console.log('[API Route] Full messages array:', JSON.stringify(fullMessages, null, 2));
     console.log('[API Route] Calling Groq API with model: moonshotai/kimi-k2-instruct');
 
-    const result = await streamText({
+    const stream = await streamText({
       model: groq('moonshotai/kimi-k2-instruct'),
       messages: fullMessages,
       temperature: 0.7,
     });
 
     console.log('[API Route] Groq API call successful, returning stream');
-    return result.toDataStreamResponse();
+    // Return plain text stream for simpler client parsing
+    return new NextResponse(stream.toAIStream(), { 
+      headers: { 
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'no-cache',
+      } 
+    });
   } catch (error) {
     console.error('[API Route] Chat API error:', error);
     console.error('[API Route] Error stack:', error instanceof Error ? error.stack : 'No stack trace');

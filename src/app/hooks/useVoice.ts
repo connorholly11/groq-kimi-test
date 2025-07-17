@@ -10,6 +10,7 @@ export function useVoice() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const transcriptPromiseRef = useRef<Promise<string> | null>(null);
 
   useEffect(() => {
     // Initialize audio context
@@ -18,6 +19,7 @@ export function useVoice() {
     
     audioElementRef.current.onplay = () => setIsSpeaking(true);
     audioElementRef.current.onended = () => setIsSpeaking(false);
+    audioElementRef.current.onpause = () => setIsSpeaking(false);
     audioElementRef.current.onerror = () => setIsSpeaking(false);
 
     return () => {
@@ -47,7 +49,9 @@ export function useVoice() {
 
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        await transcribeAudio(audioBlob);
+        // Store the promise so components can await it
+        transcriptPromiseRef.current = transcribeAudio(audioBlob);
+        await transcriptPromiseRef.current;
         
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
@@ -68,7 +72,11 @@ export function useVoice() {
     }
   }, []);
 
-  const transcribeAudio = async (audioBlob: Blob) => {
+  const clearTranscript = useCallback(() => {
+    setTranscript('');
+  }, []);
+
+  const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
@@ -84,12 +92,16 @@ export function useVoice() {
 
       const { transcript } = await response.json();
       setTranscript(transcript);
+      return transcript;
     } catch (error) {
       console.error('Error transcribing audio:', error);
+      return '';
     }
   };
 
   const speak = useCallback(async (text: string) => {
+    if (!text) return;
+    
     try {
       if (audioElementRef.current) {
         // Stop any current playback
@@ -105,16 +117,16 @@ export function useVoice() {
         body: JSON.stringify({ text }),
       });
 
-      if (!response.ok) {
-        throw new Error('Speech synthesis failed');
+      if (!response.ok || !response.body) {
+        throw new Error('TTS fail');
       }
 
-      // Create a blob URL from the response
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
+      // Use blob for reliable playback
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
 
       if (audioElementRef.current) {
-        audioElementRef.current.src = audioUrl;
+        audioElementRef.current.src = url;
         await audioElementRef.current.play();
       }
     } catch (error) {
@@ -139,6 +151,8 @@ export function useVoice() {
     stopListening,
     speak,
     stopSpeaking,
+    clearTranscript,
+    transcriptPromiseRef,
     isSupported: typeof window !== 'undefined' && 
       'mediaDevices' in navigator &&
       'getUserMedia' in navigator.mediaDevices
