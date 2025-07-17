@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatThread, SystemPrompt } from '@/app/types';
@@ -9,7 +9,8 @@ import { ChatWindow } from '@/app/components/ChatWindow';
 import { ChatList } from '@/app/components/ChatList';
 import { Settings } from 'lucide-react';
 
-export default function ChatPage({ params }: { params: { id: string } }) {
+export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [chats, setChats] = useState<ChatThread[]>([]);
   const [currentChat, setCurrentChat] = useState<ChatThread | null>(null);
@@ -22,10 +23,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     setChats(chatArray);
     setSystemPrompts(loadAllPrompts());
 
-    const chat = allChats[params.id];
+    const chat = allChats[id];
     if (chat) {
       setCurrentChat(chat);
-    } else if (params.id === 'new') {
+    } else if (id === 'new') {
       const newChat: ChatThread = {
         id: uuidv4(),
         title: '',
@@ -35,7 +36,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       saveChat(newChat);
       router.push(`/chat/${newChat.id}`);
     }
-  }, [params.id, router]);
+  }, [id, router]);
 
   const handleNewChat = () => {
     const newChat: ChatThread = {
@@ -50,7 +51,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const handleDeleteChat = (chatId: string) => {
     deleteChat(chatId);
-    if (chatId === params.id) {
+    if (chatId === id) {
       router.push('/');
     }
     setChats(Object.values(loadAllChats()));
@@ -74,7 +75,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       <div className="w-64">
         <ChatList
           chats={chats}
-          currentChatId={params.id}
+          currentChatId={id}
           onSelectChat={(id) => router.push(`/chat/${id}`)}
           onNewChat={handleNewChat}
           onDeleteChat={handleDeleteChat}
