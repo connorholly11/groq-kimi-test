@@ -20,7 +20,7 @@ export function ChatList({
   onDeleteChat,
 }: ChatListProps) {
   return (
-    <div className="h-full bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="h-full bg-gray-100 dark:bg-gray-800 flex flex-col">
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <button
           onClick={onNewChat}

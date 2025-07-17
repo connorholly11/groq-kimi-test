@@ -71,8 +71,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="w-64">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-gray-50 dark:bg-gray-900">
+      <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
         <ChatList
           chats={chats}
           currentChatId={id}
@@ -81,10 +81,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           onDeleteChat={handleDeleteChat}
         />
       </div>
-      <div className="flex-1 flex flex-col">
-        <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center bg-white dark:bg-gray-900">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{currentChat.title || 'New Chat'}</h2>
-          <div className="flex space-x-2">
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center bg-white dark:bg-gray-900 flex-shrink-0">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{currentChat.title || 'New Chat'}</h2>
+          <div className="flex space-x-2 flex-shrink-0">
             <button
               onClick={() => setShowPromptSelector(!showPromptSelector)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
@@ -96,7 +96,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         </div>
         
         {showPromptSelector && (
-          <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-100 dark:bg-gray-800">
+          <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-100 dark:bg-gray-800 flex-shrink-0">
             <h3 className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Select System Prompt:</h3>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {systemPrompts.map((prompt) => (
@@ -116,7 +116,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
         
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden">
           <ChatWindow chatThread={currentChat} />
         </div>
       </div>
