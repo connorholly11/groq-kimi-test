@@ -111,7 +111,7 @@ export function useVoice() {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         console.log('[useVoice] Created audio blob, size:', audioBlob.size);
         // Store the promise so components can await it
-        transcriptPromiseRef.current = transcribeAudio(audioBlob);
+        transcriptPromiseRef.current = transcribeWithFallback(audioBlob);
         await transcriptPromiseRef.current;
         
         // Stop all tracks
@@ -142,13 +142,59 @@ export function useVoice() {
     setTranscript('');
   }, []);
 
-  const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
-    console.log('[useVoice] transcribeAudio called, blob size:', audioBlob.size);
+  const transcribeWithFallback = async (audioBlob: Blob): Promise<string> => {
+    console.log('[useVoice] transcribeWithFallback called, blob size:', audioBlob.size);
+    
+    // Try Whisper first (primary)
+    try {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'recording.webm');
+      
+      // Optional: Add language hint if needed
+      // formData.append('language', 'en');
+      
+      console.log('[useVoice] Calling Whisper API (primary)...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout
+      
+      const response = await fetch('/api/whisper', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[useVoice] Whisper transcription successful:', data.text?.substring(0, 100));
+        setTranscript(data.text);
+        return data.text;
+      }
+      
+      // Check if it's a translation error (turbo doesn't support translation)
+      if (response.status === 400) {
+        const error = await response.json();
+        if (error.error?.includes('translation')) {
+          console.log('[useVoice] Whisper translation not supported, falling back to Deepgram');
+        }
+      }
+      
+      console.warn('[useVoice] Whisper API failed:', response.status, ', falling back to Deepgram');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn('[useVoice] Whisper timeout, falling back to Deepgram');
+      } else {
+        console.error('[useVoice] Whisper error:', error);
+      }
+    }
+    
+    // Fallback to Deepgram
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
 
-      console.log('[useVoice] Calling Deepgram API...');
+      console.log('[useVoice] Calling Deepgram API (fallback)...');
       const response = await fetch('/api/deepgram', {
         method: 'POST',
         body: formData,
