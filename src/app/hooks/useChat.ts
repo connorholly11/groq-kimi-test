@@ -127,7 +127,7 @@ export function useChat(chatThread: ChatThread, isVoiceMode: boolean = false) {
                   return updated;
                 });
                 continue;
-              } catch (e) {
+              } catch {
                 // Try as plain text
                 const token = jsonPart.replace(/^"+|"+$/g, '');
                 console.log(`[useChat] Parsed token (plain text): "${token}"`);

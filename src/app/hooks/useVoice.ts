@@ -33,11 +33,11 @@ export function useVoice() {
     audioElementRef.current = audio;
 
     // Initialize audio context
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
     // Guard so we don't stack multiple identical listeners
     // (React Strict‑Mode mounts twice in dev)
-    // @ts-ignore for dataset flag
+    // @ts-expect-error for dataset flag
     if (!audio.dataset.voiceListeners) {
       // Add more event listeners to track audio state
       audio.onloadstart = () => serverLog('[useVoice] 🔄 Audio loadstart', 'debug');
@@ -74,7 +74,7 @@ export function useVoice() {
         speakingLockRef.current = false;
       };
 
-      // @ts-ignore
+      // @ts-expect-error
       audio.dataset.voiceListeners = 'true';
     }
 

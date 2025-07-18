@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Mic, MicOff, Volume2, VolumeX, Send } from 'lucide-react';
-import Link from 'next/link';
+import { Mic, MicOff, Volume2, Send } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
 import { useVoice } from '../hooks/useVoice';
 import { v4 as uuidv4 } from 'uuid';
@@ -32,7 +31,6 @@ export default function VoiceChatPage() {
     startListening,
     stopListening,
     speak,
-    stopSpeaking,
     clearTranscript,
     isSupported
   } = useVoice();

@@ -25,8 +25,7 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
     isSpeaking, 
     startListening, 
     stopListening, 
-    speak, 
-    stopSpeaking,
+    speak,
     clearTranscript,
     isSupported 
   } = useVoice();
@@ -76,7 +75,7 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
       clearTranscript();            // reset local state
       setInput('');                 // clear input box
     })();
-  }, [transcript, voiceEnabled, isLoading, sendMessage, clearTranscript]);
+  }, [transcript, voiceEnabled, isLoading, sendMessage, clearTranscript, isVoiceMode]);
 
   // Strip SSML tags for display
   const stripSSML = (text: string): string => {

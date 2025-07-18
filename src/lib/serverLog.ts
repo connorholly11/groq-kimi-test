@@ -6,7 +6,7 @@ export async function serverLog(message: string, level: 'info' | 'error' | 'warn
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, level }),
     });
-  } catch (error) {
+  } catch {
     // Fallback to console if server logging fails
     console.log(`[ServerLog Failed] ${message}`);
   }
