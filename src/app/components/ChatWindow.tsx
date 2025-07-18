@@ -8,6 +8,7 @@ import { useVoice } from '../hooks/useVoice';
 import { cn } from '@/lib/cn';
 import { serverLog } from '@/lib/serverLog';
 import { stripForDisplay } from '@/lib/ttsSanitizer';
+import { splitMessageIntoChunks, shouldSplitMessage } from '@/lib/messageUtils';
 
 interface ChatWindowProps {
   chatThread: ChatThread;
@@ -129,30 +130,38 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
         "flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4",
         isVoiceMode ? "bg-purple-50 dark:bg-purple-900/20" : "bg-gray-50 dark:bg-gray-800"
       )}>
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              'flex',
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
+        {messages.map((message) => {
+          const content = message.role === 'assistant' && isVoiceMode 
+            ? stripForDisplay(message.content) 
+            : message.content;
+          
+          // Split messages into chunks for more natural conversation flow
+          const shouldSplit = !isVoiceMode && shouldSplitMessage(content, message.role);
+          const chunks = shouldSplit ? splitMessageIntoChunks(content) : [content];
+          
+          return chunks.map((chunk, chunkIndex) => (
             <div
+              key={`${message.id}-${chunkIndex}`}
               className={cn(
-                'max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 text-sm sm:text-base',
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                'flex mb-2',
+                message.role === 'user' ? 'justify-end' : 'justify-start'
               )}
             >
-              <pre className="whitespace-pre-wrap font-sans">
-                {message.role === 'assistant' && isVoiceMode 
-                  ? stripForDisplay(message.content) 
-                  : message.content}
-              </pre>
+              <div
+                className={cn(
+                  'max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 text-sm sm:text-base',
+                  message.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                )}
+              >
+                <pre className="whitespace-pre-wrap font-sans">
+                  {chunk}
+                </pre>
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+        })}
         {isLoading && (
           <div className="flex justify-start">
             <div className={cn(

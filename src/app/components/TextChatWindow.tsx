@@ -5,6 +5,7 @@ import { Send } from 'lucide-react';
 import { ChatThread } from '../types';
 import { useChat } from '../hooks/useChat';
 import { cn } from '@/lib/cn';
+import { splitMessageIntoChunks, shouldSplitMessage } from '@/lib/messageUtils';
 
 interface TextChatWindowProps {
   chatThread: ChatThread;
@@ -38,28 +39,34 @@ export function TextChatWindow({ chatThread }: TextChatWindowProps) {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
       <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50 dark:bg-gray-800">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              'flex',
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
+        {messages.map((message) => {
+          // Split messages into chunks for more natural conversation flow
+          const shouldSplit = shouldSplitMessage(message.content, message.role);
+          const chunks = shouldSplit ? splitMessageIntoChunks(message.content) : [message.content];
+          
+          return chunks.map((chunk, chunkIndex) => (
             <div
+              key={`${message.id}-${chunkIndex}`}
               className={cn(
-                'max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 text-sm sm:text-base',
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                'flex mb-2',
+                message.role === 'user' ? 'justify-end' : 'justify-start'
               )}
             >
-              <pre className="whitespace-pre-wrap font-sans">
-                {message.content}
-              </pre>
+              <div
+                className={cn(
+                  'max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 text-sm sm:text-base',
+                  message.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                )}
+              >
+                <pre className="whitespace-pre-wrap font-sans">
+                  {chunk}
+                </pre>
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+        })}
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2">
