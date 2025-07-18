@@ -162,7 +162,7 @@ export function useChat(chatThread: ChatThread, isVoiceMode: boolean = false) {
               console.log('[useChat] No delta content found in JSON');
             }
           } catch (err) {
-            console.warn('[useChat] Failed to parse line as JSON:', line, 'Error:', err.message);
+            console.warn('[useChat] Failed to parse line as JSON:', line, 'Error:', err instanceof Error ? err.message : String(err));
           }
         }
       }

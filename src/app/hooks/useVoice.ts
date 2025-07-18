@@ -37,7 +37,6 @@ export function useVoice() {
 
     // Guard so we don't stack multiple identical listeners
     // (React Strict‑Mode mounts twice in dev)
-    // @ts-expect-error for dataset flag
     if (!audio.dataset.voiceListeners) {
       // Add more event listeners to track audio state
       audio.onloadstart = () => serverLog('[useVoice] 🔄 Audio loadstart', 'debug');
@@ -74,7 +73,6 @@ export function useVoice() {
         speakingLockRef.current = false;
       };
 
-      // @ts-expect-error
       audio.dataset.voiceListeners = 'true';
     }
 
