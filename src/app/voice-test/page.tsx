@@ -7,6 +7,7 @@ import { useVoice } from '../hooks/useVoice';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/cn';
 import { stripForDisplay } from '@/lib/ttsSanitizer';
+import { TTSVendor } from '@/lib/types/tts';
 
 export default function VoiceChatPage() {
   const [input, setInput] = useState('');
@@ -33,7 +34,9 @@ export default function VoiceChatPage() {
     stopListening,
     speak,
     clearTranscript,
-    isSupported
+    isSupported,
+    vendor,
+    setVendor
   } = useVoice();
 
   // Send message when transcript is ready
@@ -87,22 +90,35 @@ export default function VoiceChatPage() {
             <Volume2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Voice Mode</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Auto-speak responses:</span>
-            <button
-              onClick={() => setVoiceEnabled(!voiceEnabled)}
-              className={cn(
-                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                voiceEnabled ? "bg-purple-600" : "bg-gray-300 dark:bg-gray-600"
-              )}
-            >
-              <span
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-500 dark:text-gray-400">TTS Engine:</label>
+              <select 
+                value={vendor} 
+                onChange={e => setVendor(e.target.value as TTSVendor)}
+                className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="elevenlabs">ElevenLabs Flash v2.5</option>
+                <option value="hume">Hume Octave</option>
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Auto-speak:</span>
+              <button
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
                 className={cn(
-                  "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                  voiceEnabled ? "translate-x-6" : "translate-x-1"
+                  "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                  voiceEnabled ? "bg-purple-600" : "bg-gray-300 dark:bg-gray-600"
                 )}
-              />
-            </button>
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                    voiceEnabled ? "translate-x-6" : "translate-x-1"
+                  )}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </div>

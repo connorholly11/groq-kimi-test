@@ -2,7 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { serverLog } from '@/lib/serverLog';
-import { sanitizeForElevenLabs } from '@/lib/ttsSanitizer';
+import { sanitizeForElevenLabs, stripForDisplay } from '@/lib/ttsSanitizer';
+import { TTSVendor } from '@/lib/types/tts';
+import { requestTTS } from '@/lib/ttsClient';
 
 // ─── Persistent <audio> element ──────────────────────────────
 let sharedAudio: HTMLAudioElement | null = null;
@@ -21,6 +23,9 @@ export function useVoice() {
   const [transcript, setTranscript] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSupported, setIsSupported] = useState(true); // Default to true to avoid hydration mismatch
+  const [vendor, setVendor] = useState<TTSVendor>(() => 
+    (typeof window !== 'undefined' ? localStorage.getItem('ttsVendor') : null) as TTSVendor ?? 'elevenlabs'
+  );
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -36,6 +41,13 @@ export function useVoice() {
       'getUserMedia' in navigator.mediaDevices
     );
   }, []);
+  
+  // Persist vendor preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ttsVendor', vendor);
+    }
+  }, [vendor]);
 
   // Attach listeners once, keep element alive across unmounts
   useEffect(() => {
@@ -261,47 +273,51 @@ export function useVoice() {
         audioElementRef.current.currentTime = 0;
       }
 
-      console.log('[useVoice] Calling ElevenLabs API...');
-      const sanitizedText = sanitizeForElevenLabs(text);
+      console.log('[useVoice] Calling TTS API:', vendor);
+      const sanitizedText = vendor === 'elevenlabs' 
+        ? sanitizeForElevenLabs(text)
+        : stripForDisplay(text); // Hume needs plain text without SSML tags
       console.log('[useVoice] Original text:', text.substring(0, 100));
       console.log('[useVoice] Sanitized text:', sanitizedText.substring(0, 100));
       
-      const response = await fetch('/api/elevenlabs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: sanitizedText }),
+      const defaultVoices = {
+        elevenlabs: 'pMsXgVXv3BLzUgSXRplE',
+        hume: undefined // Let Hume use the voice description
+      };
+      
+      const blob = await requestTTS({ 
+        text: sanitizedText, 
+        vendor,
+        voiceId: defaultVoices[vendor]
       });
 
-      if (!response.ok || !response.body) {
-        console.error('[useVoice] ElevenLabs API error:', response.status, response.statusText);
-        throw new Error('TTS request failed');
-      }
-
-      let blob = await response.blob();
       console.log('[useVoice] Received audio blob, size:', blob.size);
-      serverLog(`[useVoice] 📦 Received audio blob, size: ${blob.size} bytes`, 'info');
+      serverLog(`[useVoice] 📦 Received audio blob from ${vendor}, size: ${blob.size} bytes`, 'info');
       
-      // Retry if blob is suspiciously small
-      if (blob.size < 10_000) {
+      // Retry if blob is suspiciously small (only for ElevenLabs)
+      let finalBlob = blob;
+      if (vendor === 'elevenlabs' && blob.size < 10_000) {
         console.warn('[useVoice] Blob suspiciously small - retrying without SSML');
         serverLog(`[useVoice] ⚠️ Blob too small (${blob.size} bytes) - retrying without SSML`, 'warn');
         // Retry with plain text (no SSML, no emotion cues)
         const plainText = text.replace(/<[^>]+>/g, '').replace(/\[[^\]]+\]/g, '').trim();
-        const retry = await fetch('/api/elevenlabs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: plainText }),
-        });
-        if (retry.ok) {
-          blob = await retry.blob();
-          console.log('[useVoice] Retry blob size:', blob.size);
-          serverLog(`[useVoice] 🔄 Retry successful, new blob size: ${blob.size} bytes`, 'info');
+        try {
+          const retryBlob = await requestTTS({
+            text: plainText,
+            vendor,
+            voiceId: defaultVoices[vendor]
+          });
+          if (retryBlob.size > blob.size) {
+            finalBlob = retryBlob;
+            console.log('[useVoice] Retry blob size:', retryBlob.size);
+            serverLog(`[useVoice] 🔄 Retry successful, new blob size: ${retryBlob.size} bytes`, 'info');
+          }
+        } catch (retryErr) {
+          console.warn('[useVoice] Retry failed:', retryErr);
         }
       }
       
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(finalBlob);
 
       if (audioElementRef.current) {
         console.log('[useVoice] Setting audio source and playing...');
@@ -319,7 +335,7 @@ export function useVoice() {
       setIsSpeaking(false);
     }
     // NO finally block - we don't want to clear the lock until audio actually ends
-  }, []);
+  }, [vendor]);
 
   const stopSpeaking = useCallback(() => {
     if (audioElementRef.current) {
@@ -339,6 +355,8 @@ export function useVoice() {
     stopSpeaking,
     clearTranscript,
     transcriptPromiseRef,
-    isSupported
+    isSupported,
+    vendor,
+    setVendor
   };
 }
