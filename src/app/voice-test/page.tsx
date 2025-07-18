@@ -6,6 +6,7 @@ import { useChat } from '../hooks/useChat';
 import { useVoice } from '../hooks/useVoice';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/cn';
+import { stripForDisplay } from '@/lib/ttsSanitizer';
 
 export default function VoiceChatPage() {
   const [input, setInput] = useState('');
@@ -135,7 +136,7 @@ export default function VoiceChatPage() {
                 )}
               >
                 <pre className="whitespace-pre-wrap font-sans text-sm">
-                  {message.content}
+                  {message.role === 'assistant' ? stripForDisplay(message.content) : message.content}
                 </pre>
               </div>
             </div>
@@ -191,7 +192,7 @@ export default function VoiceChatPage() {
               onMouseLeave={handleVoiceStop}
               onTouchStart={startListening}
               onTouchEnd={handleVoiceStop}
-              disabled={!isSupported || isLoading}
+              disabled={!!(!isSupported || isLoading)}
               className={cn(
                 "px-4 py-2 rounded-lg transition-all min-w-[60px]",
                 isListening 

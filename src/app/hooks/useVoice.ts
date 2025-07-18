@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { serverLog } from '@/lib/serverLog';
+import { sanitizeForElevenLabs } from '@/lib/ttsSanitizer';
 
 // ─── Persistent <audio> element ──────────────────────────────
 let sharedAudio: HTMLAudioElement | null = null;
@@ -19,12 +20,22 @@ export function useVoice() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSupported, setIsSupported] = useState(true); // Default to true to avoid hydration mismatch
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioElementRef = useRef<HTMLAudioElement | null>(getSharedAudio());
   const transcriptPromiseRef = useRef<Promise<string> | null>(null);
   const speakingLockRef = useRef<boolean>(false);
+
+  // Check browser support on client side only
+  useEffect(() => {
+    setIsSupported(
+      typeof window !== 'undefined' && 
+      'mediaDevices' in navigator &&
+      'getUserMedia' in navigator.mediaDevices
+    );
+  }, []);
 
   // Attach listeners once, keep element alive across unmounts
   useEffect(() => {
@@ -87,6 +98,17 @@ export function useVoice() {
 
   const startListening = useCallback(async () => {
     console.log('[useVoice] startListening called');
+    
+    // Stop any ongoing speech when starting a new recording (interruption)
+    if (audioElementRef.current && !audioElementRef.current.paused) {
+      console.log('[useVoice] Interrupting current speech');
+      serverLog('[useVoice] 🛑 INTERRUPTING - User started new recording while AI was speaking', 'warn');
+      audioElementRef.current.pause();
+      audioElementRef.current.currentTime = 0;
+      setIsSpeaking(false);
+      speakingLockRef.current = false;
+    }
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -240,12 +262,16 @@ export function useVoice() {
       }
 
       console.log('[useVoice] Calling ElevenLabs API...');
+      const sanitizedText = sanitizeForElevenLabs(text);
+      console.log('[useVoice] Original text:', text.substring(0, 100));
+      console.log('[useVoice] Sanitized text:', sanitizedText.substring(0, 100));
+      
       const response = await fetch('/api/elevenlabs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: sanitizedText }),
       });
 
       if (!response.ok || !response.body) {
@@ -261,10 +287,12 @@ export function useVoice() {
       if (blob.size < 10_000) {
         console.warn('[useVoice] Blob suspiciously small - retrying without SSML');
         serverLog(`[useVoice] ⚠️ Blob too small (${blob.size} bytes) - retrying without SSML`, 'warn');
+        // Retry with plain text (no SSML, no emotion cues)
+        const plainText = text.replace(/<[^>]+>/g, '').replace(/\[[^\]]+\]/g, '').trim();
         const retry = await fetch('/api/elevenlabs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text.replace(/<[^>]+>/g, '') }),
+          body: JSON.stringify({ text: plainText }),
         });
         if (retry.ok) {
           blob = await retry.blob();
@@ -311,8 +339,6 @@ export function useVoice() {
     stopSpeaking,
     clearTranscript,
     transcriptPromiseRef,
-    isSupported: typeof window !== 'undefined' && 
-      'mediaDevices' in navigator &&
-      'getUserMedia' in navigator.mediaDevices
+    isSupported
   };
 }

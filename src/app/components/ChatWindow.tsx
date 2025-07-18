@@ -7,6 +7,7 @@ import { useChat } from '../hooks/useChat';
 import { useVoice } from '../hooks/useVoice';
 import { cn } from '@/lib/cn';
 import { serverLog } from '@/lib/serverLog';
+import { stripForDisplay } from '@/lib/ttsSanitizer';
 
 interface ChatWindowProps {
   chatThread: ChatThread;
@@ -77,20 +78,6 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
     })();
   }, [transcript, voiceEnabled, isLoading, sendMessage, clearTranscript, isVoiceMode]);
 
-  // Strip SSML tags for display
-  const stripSSML = (text: string): string => {
-    // Remove <speak> tags and all SSML markup
-    return text
-      .replace(/<speak>/g, '')
-      .replace(/<\/speak>/g, '')
-      .replace(/<break[^>]*\/>/g, ' ')
-      .replace(/<emphasis[^>]*>([^<]*)<\/emphasis>/g, '$1')
-      .replace(/<prosody[^>]*>([^<]*)<\/prosody>/g, '$1')
-      .replace(/<phoneme[^>]*>([^<]*)<\/phoneme>/g, '$1')
-      .replace(/\[([^\]]+)\]/g, '') // Remove emotion tags
-      .replace(/<[^>]+>/g, '') // Remove any other tags
-      .trim();
-  };
 
   // Speak new assistant messages if voice is enabled
   const lastSpokenMessageRef = useRef<string>('');
@@ -160,7 +147,7 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
             >
               <pre className="whitespace-pre-wrap font-sans">
                 {message.role === 'assistant' && isVoiceMode 
-                  ? stripSSML(message.content) 
+                  ? stripForDisplay(message.content) 
                   : message.content}
               </pre>
             </div>
@@ -232,7 +219,7 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
                 onMouseLeave={handleVoiceStop}
                 onTouchStart={startListening}
                 onTouchEnd={handleVoiceStop}
-                disabled={!voiceEnabled || isLoading}
+                disabled={!!(!voiceEnabled || isLoading)}
                 className={cn(
                   "px-3 py-2 rounded-lg transition-colors min-w-[44px]",
                   isListening 
@@ -255,7 +242,7 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
               onMouseLeave={handleVoiceStop}
               onTouchStart={startListening}
               onTouchEnd={handleVoiceStop}
-              disabled={isLoading}
+              disabled={!!isLoading}
               className={cn(
                 "px-4 py-3 rounded-lg transition-all min-w-[60px]",
                 isListening 
