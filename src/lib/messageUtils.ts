@@ -4,6 +4,16 @@ export function splitMessageIntoChunks(text: string): string[] {
     return [text.trim()];
   }
 
+  // First check if this is a numbered list
+  const numberedListPattern = /^\s*\d+\.\s+/m;
+  const isNumberedList = numberedListPattern.test(text);
+  
+  if (isNumberedList) {
+    // For numbered lists, split by list items
+    const listItems = text.split(/\n(?=\s*\d+\.\s+)/).filter(item => item.trim());
+    return listItems.map(item => item.trim());
+  }
+
   // Split by multiple newlines first (paragraphs)
   const paragraphs = text.split(/\n\n+/).filter(p => p.trim());
   
@@ -17,7 +27,9 @@ export function splitMessageIntoChunks(text: string): string[] {
     }
     
     // Split longer paragraphs by sentences
-    const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+    // This regex handles sentences ending with ., !, or ?
+    // but avoids splitting at decimal numbers or numbered lists
+    const sentences = paragraph.split(/(?<=[.!?])\s+(?=[A-Z])/);
     
     let currentChunk = '';
     for (const sentence of sentences) {
