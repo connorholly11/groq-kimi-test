@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MessageSquare, Settings } from 'lucide-react';
+import { MessageSquare, Settings, Mic } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 export function Navigation() {
   const pathname = usePathname();
   const isChat = pathname.includes('/chat');
   const isSystemPrompts = pathname === '/system-prompts';
+  const isVoiceChat = pathname === '/voice-test';
 
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
@@ -38,6 +39,19 @@ export function Navigation() {
           >
             <Settings className="w-4 h-4" />
             <span className="hidden sm:inline">System Prompts</span>
+          </Link>
+          
+          <Link
+            href="/voice-test"
+            className={cn(
+              "flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-3 sm:py-4 text-sm font-medium border-b-2 transition-colors min-w-[44px]",
+              isVoiceChat
+                ? "border-purple-600 text-purple-600 dark:text-purple-400"
+                : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            )}
+          >
+            <Mic className="w-4 h-4" />
+            <span className="hidden sm:inline">Voice Chat</span>
           </Link>
         </div>
       </div>

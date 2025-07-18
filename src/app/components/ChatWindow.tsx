@@ -6,6 +6,7 @@ import { ChatThread } from '../types';
 import { useChat } from '../hooks/useChat';
 import { useVoice } from '../hooks/useVoice';
 import { cn } from '@/lib/cn';
+import { serverLog } from '@/lib/serverLog';
 
 interface ChatWindowProps {
   chatThread: ChatThread;
@@ -27,7 +28,6 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
     speak, 
     stopSpeaking,
     clearTranscript,
-    transcriptPromiseRef,
     isSupported 
   } = useVoice();
 
@@ -47,20 +47,36 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
 
   // Handle voice transcript auto-send
   useEffect(() => {
-    if (!voiceEnabled || !transcriptPromiseRef.current) return;
+    console.log('[ChatWindow] Voice transcript effect triggered:', {
+      voiceEnabled,
+      transcript,
+      isLoading,
+      isVoiceMode
+    });
     
-    let active = true;
+    // Fire only when we have a fresh Deepgram transcript
+    if (!voiceEnabled || !transcript || isLoading) {
+      console.log('[ChatWindow] Voice transcript effect blocked:', {
+        voiceEnabled,
+        hasTranscript: !!transcript,
+        isLoading
+      });
+      return;
+    }
+
+    const cleaned = transcript.trim();
+    if (!cleaned) {
+      console.log('[ChatWindow] Voice transcript effect blocked: empty transcript');
+      return;
+    }
+
+    console.log('[ChatWindow] Sending voice transcript to chat:', cleaned);
     (async () => {
-      const t = await transcriptPromiseRef.current;
-      if (active && t && t.trim() && !isLoading) {
-        await sendMessage(t.trim());
-        clearTranscript();
-        setInput('');
-      }
+      await sendMessage(cleaned);   // drop text into the chat thread
+      clearTranscript();            // reset local state
+      setInput('');                 // clear input box
     })();
-    
-    return () => { active = false; };
-  }, [transcriptPromiseRef.current, isLoading, voiceEnabled, sendMessage, clearTranscript]);
+  }, [transcript, voiceEnabled, isLoading, sendMessage, clearTranscript]);
 
   // Strip SSML tags for display
   const stripSSML = (text: string): string => {
@@ -80,16 +96,23 @@ export function ChatWindow({ chatThread, isVoiceMode = false }: ChatWindowProps)
   // Speak new assistant messages if voice is enabled
   const lastSpokenMessageRef = useRef<string>('');
   useEffect(() => {
-    if (voiceEnabled && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'assistant' && lastMessage.content && 
-          lastMessage.id !== lastSpokenMessageRef.current) {
-        // Send raw SSML content to TTS only once per message
-        lastSpokenMessageRef.current = lastMessage.id;
-        speak(lastMessage.content);
-      }
+    if (!voiceEnabled || isLoading || messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    
+    // Only speak if we have actual content (not empty string)
+    if (
+      lastMessage.role === 'assistant' &&
+      lastMessage.content &&
+      lastMessage.content.trim() !== '' &&
+      lastMessage.id !== lastSpokenMessageRef.current
+    ) {
+      console.log('[ChatWindow] Speaking message:', lastMessage.id, 'Content:', lastMessage.content);
+      serverLog(`[ChatWindow] 📢 Triggering SPEAK for message ${lastMessage.id} (${lastMessage.content.length} chars)`, 'info');
+      lastSpokenMessageRef.current = lastMessage.id;
+      speak(lastMessage.content);   // call ElevenLabs once, with FULL text
     }
-  }, [messages, voiceEnabled, speak]);
+  }, [messages, voiceEnabled, isLoading, speak]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

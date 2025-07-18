@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatThread, SystemPrompt } from '@/app/types';
 import { loadAllChats, saveChat, deleteChat, loadAllPrompts } from '@/lib/storage';
-import { ChatWindow } from '@/app/components/ChatWindow';
+import { TextChatWindow } from '@/app/components/TextChatWindow';
 import { ChatList } from '@/app/components/ChatList';
-import { Settings, Menu, X, Mic } from 'lucide-react';
+import { Settings, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { FERMI_VOICE_PROMPT } from '@/lib/fermi-prompt';
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -21,7 +20,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
   const [showPromptSelector, setShowPromptSelector] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  const [voiceMode, setVoiceMode] = useState(false);
 
   useEffect(() => {
     console.log('[ChatPage] useEffect triggered for ID:', id);
@@ -92,10 +90,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  const toggleVoiceMode = () => {
-    setVoiceMode(!voiceMode);
-    // Don't modify the chat's system prompt - voice mode will use its own
-  };
 
   if (!currentChat) {
     console.log('[ChatPage] No current chat, showing loading screen');
@@ -147,38 +141,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             </button>
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{currentChat.title || 'New Chat'}</h2>
           </div>
-          <div className="flex space-x-2 flex-shrink-0">
-            <button
-              onClick={toggleVoiceMode}
-              className={cn(
-                "p-2 rounded-lg transition-colors",
-                voiceMode
-                  ? "bg-purple-600 text-white hover:bg-purple-700"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-              )}
-              title={voiceMode ? "Voice mode enabled (Fermi)" : "Enable voice mode"}
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setShowPromptSelector(!showPromptSelector)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
-              title="Change system prompt"
-            >
-              <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            </button>
-          </div>
+          <button
+            onClick={() => setShowPromptSelector(!showPromptSelector)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
+            title="Change system prompt"
+          >
+            <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          </button>
         </div>
-        
-        {voiceMode && (
-          <div className="bg-purple-600 text-white px-4 py-2 text-sm flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Mic className="w-4 h-4 animate-pulse" />
-              <span className="font-medium">Voice Mode Active - Fermi AI Coach</span>
-            </div>
-            <span className="text-purple-200 text-xs">Hold mic button to speak</span>
-          </div>
-        )}
         
         {showPromptSelector && (
           <div className="border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-gray-100 dark:bg-gray-800 flex-shrink-0">
@@ -202,7 +172,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         )}
         
         <div className="flex-1 overflow-hidden">
-          <ChatWindow chatThread={currentChat} isVoiceMode={voiceMode} />
+          <TextChatWindow chatThread={currentChat} />
         </div>
       </div>
     </div>
